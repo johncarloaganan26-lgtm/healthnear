@@ -1,0 +1,6 @@
+{
+  "name": "HealthPulse - Healthcare Tracker",
+  "description": "Find and track healthcare facilities near you including hospitals, pharmacies, and emergency services with real-time map integration.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["maps", "geolocation"]
+}
