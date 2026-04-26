@@ -39,22 +39,37 @@ export async function fetchNearbyHealthcare(
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
     'https://lz4.overpass-api.de/api/interpreter',
-    'https://z.overpass-api.de/api/interpreter'
+    'https://z.overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter'
   ];
 
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(endpoint, {
+      // First try POST
+      let response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: 'data=' + encodeURIComponent(query),
+        mode: 'cors'
       });
 
-      if (!response.ok) continue;
+      // If POST fails with CORS or other fetch errors, try GET as a fallback
+      if (!response.ok) {
+        const getUrl = `${endpoint}?data=${encodeURIComponent(query)}`;
+        response = await fetch(getUrl, { method: 'GET', mode: 'cors' });
+      }
+
+      if (!response.ok) {
+        console.warn(`Endpoint ${endpoint} returned status ${response.status}`);
+        continue;
+      }
 
       const data = await response.json();
+      if (!data.elements) continue;
+
       return data.elements.map((el: any) => {
         const tags = el.tags || {};
         const category = mapAmenityToCategory(tags.amenity, tags.emergency);
