@@ -14,6 +14,11 @@ export async function fetchNearbyHealthcare(
 ): Promise<HealthcareFacility[]> {
   const { lat, lon } = location;
   
+  if (lat === 0 && lon === 0) {
+    console.warn('Coordinates are (0,0), skipping fetch');
+    return [];
+  }
+
   // Overpass QL query: find hospitals, pharmacies, dentists, and emergency centers
   // within a radius around the user.
   const query = `
@@ -31,35 +36,49 @@ export async function fetchNearbyHealthcare(
     out center;
   `;
 
-  try {
-    const response = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query,
-    });
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter',
+    'https://z.overpass-api.de/api/interpreter'
+  ];
 
-    if (!response.ok) throw new Error('Failed to fetch from Overpass API');
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'data=' + encodeURIComponent(query),
+      });
 
-    const data = await response.json();
-    return data.elements.map((el: any) => {
-      const tags = el.tags || {};
-      const category = mapAmenityToCategory(tags.amenity, tags.emergency);
-      
-      return {
-        id: el.id.toString(),
-        name: tags.name || tags.operator || `${category.charAt(0).toUpperCase() + category.slice(1)}`,
-        category,
-        lat: el.lat || el.center.lat,
-        lon: el.lon || el.center.lon,
-        address: formatAddress(tags),
-        phone: tags.phone || tags['contact:phone'] || 'N/A',
-        isOpen: tags.opening_hours ? true : undefined, // Simplification for demo
-        rating: Math.floor(Math.random() * 2) + 3.5, // Mock rating as OSM doesn't have it reliably
-      };
-    });
-  } catch (error) {
-    console.error('Error fetching healthcare:', error);
-    return [];
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      return data.elements.map((el: any) => {
+        const tags = el.tags || {};
+        const category = mapAmenityToCategory(tags.amenity, tags.emergency);
+        
+        return {
+          id: el.id.toString(),
+          name: tags.name || tags.operator || `${category.charAt(0).toUpperCase() + category.slice(1)}`,
+          category,
+          lat: el.lat || el.center.lat,
+          lon: el.lon || el.center.lon,
+          address: formatAddress(tags),
+          phone: tags.phone || tags['contact:phone'] || 'N/A',
+          isOpen: tags.opening_hours ? true : undefined, // Simplification for demo
+          rating: Math.floor(Math.random() * 2) + 3.5, // Mock rating as OSM doesn't have it reliably
+        };
+      });
+    } catch (error) {
+      console.warn(`Failed to fetch from ${endpoint}:`, error);
+      // Try next endpoint
+    }
   }
+
+  console.error('All Overpass API mirrors failed');
+  return [];
 }
 
 function mapAmenityToCategory(amenity: string, emergency?: string): HealthcareCategory {
