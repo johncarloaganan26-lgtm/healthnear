@@ -6,7 +6,8 @@
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { HealthcareFacility, UserLocation } from '../types';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { LocateFixed } from 'lucide-react';
 
 interface MapDisplayProps {
   userLocation: UserLocation;
@@ -52,21 +53,35 @@ const getIcon = (category: string, isDarkMode?: boolean) => {
   });
 };
 
-function MapRecenter({ center }: { center: [number, number] }) {
+function MapRecenter({ center, zoom }: { center: [number, number], zoom?: number }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, map.getZoom());
-  }, [center, map]);
+    map.setView(center, zoom || map.getZoom());
+  }, [center, map, zoom]);
   return null;
 }
 
 export default function MapDisplay({ userLocation, facilities, selectedFacility, onSelectFacility, isDarkMode }: MapDisplayProps) {
-  const center: [number, number] = [userLocation.lat, userLocation.lon];
+  const [viewTarget, setViewTarget] = useState<[number, number] | null>(null);
+  const userCoords: [number, number] = [userLocation.lat, userLocation.lon];
+
+  // Update view target when selected facility changes
+  useEffect(() => {
+    if (selectedFacility) {
+      setViewTarget([selectedFacility.lat, selectedFacility.lon]);
+    }
+  }, [selectedFacility]);
+
+  const handleRecenter = () => {
+    setViewTarget(userCoords);
+    // Brief delay to allow effect to run, then clear it so we can re-trigger
+    setTimeout(() => setViewTarget(null), 100);
+  };
 
   return (
     <div className="w-full h-full relative" id="map-container">
       <MapContainer 
-        center={center} 
+        center={userCoords} 
         zoom={14} 
         scrollWheelZoom={true} 
         className="w-full h-full"
@@ -81,11 +96,18 @@ export default function MapDisplay({ userLocation, facilities, selectedFacility,
         
         {/* User Location Marker */}
         <Marker 
-          position={center} 
+          position={userCoords} 
+          zIndexOffset={1000}
           icon={L.divIcon({
-            className: 'user-marker',
-            html: '<div class="w-4 h-4 bg-blue-500 border-2 border-white rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>',
-            iconSize: [16, 16],
+            className: 'user-marker-container',
+            html: `
+              <div class="relative flex items-center justify-center">
+                <div class="absolute w-8 h-8 bg-blue-500/20 rounded-full animate-ping"></div>
+                <div class="relative w-5 h-5 bg-blue-500 border-2 border-white rounded-full shadow-lg"></div>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
           })}
         >
           <Popup>You are here</Popup>
@@ -118,10 +140,24 @@ export default function MapDisplay({ userLocation, facilities, selectedFacility,
           </Marker>
         ))}
 
-        {selectedFacility && (
-          <MapRecenter center={[selectedFacility.lat, selectedFacility.lon]} />
+        {viewTarget && (
+          <MapRecenter center={viewTarget} />
         )}
       </MapContainer>
+
+      {/* Map Control Overlay */}
+      <div className="absolute top-4 right-4 z-[500] flex flex-col gap-2">
+        <button 
+          onClick={handleRecenter}
+          className={`p-3 rounded-2xl natural-shadow transition-all active:scale-95 border ${
+            isDarkMode ? 'bg-dark-surface border-dark-border text-medical-primary hover:bg-dark-bg' : 'bg-white border-medical-border text-medical-primary hover:bg-medical-surface'
+          }`}
+          title="Recenter on me"
+        >
+          {/* We'll use a hidden state to force recenter */}
+          <LocateFixed size={20} />
+        </button>
+      </div>
     </div>
   );
 }

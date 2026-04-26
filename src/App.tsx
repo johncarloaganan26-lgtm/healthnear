@@ -48,12 +48,27 @@ export default function App() {
     openOnly: false,
   });
 
+  const [lastFetchLocation, setLastFetchLocation] = useState<UserLocation | null>(null);
+
   // Fetch facilities when location changes
   useEffect(() => {
     if (userLocation && !isHome) {
-      loadData(userLocation);
+      if (!lastFetchLocation) {
+        loadData(userLocation);
+      } else {
+        const distanceMoved = calculateDistance(
+          userLocation.lat, 
+          userLocation.lon, 
+          lastFetchLocation.lat, 
+          lastFetchLocation.lon
+        );
+        // Only refresh if moved more than 500 meters (0.5km)
+        if (distanceMoved > 0.5) {
+          loadData(userLocation);
+        }
+      }
     }
-  }, [userLocation, isHome]);
+  }, [userLocation, isHome, lastFetchLocation]);
 
   // Load saved facilities from localStorage
   useEffect(() => {
@@ -74,6 +89,7 @@ export default function App() {
 
   const loadData = async (loc: UserLocation) => {
     setIsLoading(true);
+    setLastFetchLocation(loc);
     const data = await fetchNearbyHealthcare(loc, filters.maxDistance * 1000);
     const withDistance = data.map(f => ({
       ...f,
@@ -191,27 +207,11 @@ export default function App() {
           </div>
         )}
 
-        <div className="flex items-center gap-8 sm:gap-12 ml-auto">
-          <button 
-            onClick={() => isLoggedIn ? setIsLoggedIn(false) : setIsAuthOpen(true)}
-            className={`p-1 transition-all active:scale-90 text-medical-primary hover:text-medical-accent`}
-            aria-label="User Account"
-          >
-            {isLoggedIn ? <ShieldCheck size={22} /> : <User size={22} />}
-          </button>
-          
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={`p-1 transition-all active:scale-90 text-medical-primary hover:text-medical-accent`}
-            aria-label="Toggle Dark Mode"
-          >
-            {isDarkMode ? <Sun size={22} /> : <Moon size={22} />}
-          </button>
-          
+        <div className="flex items-center gap-4 sm:gap-8 ml-auto">
           <div className="relative">
             <button 
               onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-              className="p-1 transition-all active:scale-90 text-2xl hover:opacity-70"
+              className="p-1 transition-all active:scale-90 text-xl sm:text-2xl hover:opacity-70"
               aria-label="Change Language"
             >
               {languages.find(l => l.code === currentLang)?.flag}
@@ -225,7 +225,7 @@ export default function App() {
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 10 }}
                     className={cn(
-                      "absolute right-0 mt-3 w-56 rounded-[2rem] natural-shadow z-[1002] p-3 overflow-hidden border",
+                      "absolute right-0 mt-3 w-48 sm:w-56 rounded-[1.5rem] sm:rounded-[2rem] natural-shadow z-[1002] p-2 sm:p-3 overflow-hidden border",
                       isDarkMode ? "bg-dark-surface border-dark-border" : "bg-white border-medical-border"
                     )}
                   >
@@ -237,14 +237,14 @@ export default function App() {
                           setIsLangMenuOpen(false);
                         }}
                         className={cn(
-                          "w-full text-left px-4 py-4 rounded-2xl flex items-center gap-4 transition-colors",
+                          "w-full text-left px-3 py-3 sm:px-4 sm:py-4 rounded-xl sm:rounded-2xl flex items-center gap-3 sm:gap-4 transition-colors",
                           currentLang === lang.code 
                             ? "bg-medical-primary/10 text-medical-primary font-bold" 
                             : isDarkMode ? "hover:bg-dark-bg text-dark-text" : "hover:bg-medical-surface text-medical-text"
                         )}
                       >
-                        <span className="text-2xl">{lang.flag}</span>
-                        <span className="text-base">{lang.name}</span>
+                        <span className="text-xl sm:text-2xl">{lang.flag}</span>
+                        <span className="text-sm sm:text-base">{lang.name}</span>
                       </button>
                     ))}
                   </motion.div>
@@ -254,12 +254,28 @@ export default function App() {
           </div>
 
           <button 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className={`p-1 transition-all active:scale-90 text-medical-primary hover:text-medical-accent`}
+            aria-label="Toggle Dark Mode"
+          >
+            {isDarkMode ? <Sun size={22} /> : <Moon size={22} />}
+          </button>
+
+          <button 
             onClick={() => setIsFilterOpen(true)}
             className={`p-2 rounded-xl transition-all active:scale-90 ${
               isDarkMode ? 'bg-dark-border text-medical-accent hover:bg-medical-text' : 'bg-medical-border/50 text-medical-text hover:bg-medical-border'
             }`}
           >
             <Settings2 size={20} />
+          </button>
+
+          <button 
+            onClick={() => isLoggedIn ? setIsLoggedIn(false) : setIsAuthOpen(true)}
+            className={`p-1 transition-all active:scale-90 text-medical-primary hover:text-medical-accent`}
+            aria-label="User Account"
+          >
+            {isLoggedIn ? <ShieldCheck size={22} /> : <User size={22} />}
           </button>
         </div>
       </header>
