@@ -23,7 +23,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function App() {
-  const { location: userLocation, error: geoError, loading: geoLoading } = useGeolocation();
+  const { location: userLocation, error: geoError, loading: geoLoading, refresh: refreshGeo } = useGeolocation();
   const [facilities, setFacilities] = useState<HealthcareFacility[]>([]);
   const [selectedFacility, setSelectedFacility] = useState<HealthcareFacility | null>(null);
   const [activeTab, setActiveTab] = useState<'map' | 'list'>('list');
@@ -152,12 +152,70 @@ export default function App() {
     return activeTab;
   }, [isHome, activeTab]);
 
+  if (geoError && !isHome) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-medical-surface p-6 text-center">
+        <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mb-6 border border-rose-100">
+          <ShieldAlert size={40} />
+        </div>
+        <h2 className="text-2xl font-black text-medical-text tracking-tight">Location Access Required</h2>
+        <p className="text-slate-500 mt-3 max-w-md font-medium leading-relaxed">
+          {geoError}
+        </p>
+        <p className="text-sm text-medical-primary mt-4 font-bold">
+          Tip: Try opening the app in a new tab if permissions don't appear.
+        </p>
+        <div className="flex gap-4 mt-8 w-full max-w-sm">
+          <button 
+            onClick={() => setIsHome(true)}
+            className="flex-1 py-4 px-6 bg-white border border-medical-border text-medical-text rounded-2xl font-bold transition-all active:scale-95"
+          >
+            {t.backHome}
+          </button>
+          <button 
+            onClick={() => refreshGeo()}
+            className="flex-1 py-4 px-6 bg-medical-primary text-white rounded-2xl font-bold natural-shadow transition-all active:scale-95"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (geoLoading && !isHome) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-medical-surface p-6 text-center">
-        <Activity className="animate-spin text-medical-primary mb-4" size={48} />
-        <h2 className="text-xl font-bold text-medical-text">Locating nearby health pulse...</h2>
-        <p className="text-slate-500 mt-2 font-medium">Checking GPS signal</p>
+        <div className="relative">
+          <Activity className="animate-spin text-medical-primary mb-6" size={56} />
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.3, 0.1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 bg-medical-primary rounded-full blur-xl -z-10"
+          />
+        </div>
+        <h2 className="text-2xl font-black text-medical-text tracking-tight">Locating Facilities...</h2>
+        <p className="text-slate-500 mt-3 max-w-sm font-medium leading-relaxed">
+          Please allow location access if prompted. We're searching for healthcare near your current pulse.
+        </p>
+
+        <div className="mt-10 p-6 bg-white border border-medical-border rounded-[2rem] max-w-sm w-full natural-shadow">
+          <p className="text-xs font-bold text-medical-accent uppercase tracking-[0.2em] mb-4">Taking too long?</p>
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={() => refreshGeo()}
+              className="w-full py-4 bg-medical-primary text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+            >
+              Refresh GPS
+            </button>
+            <button 
+              onClick={() => setIsHome(true)}
+              className="w-full py-4 text-medical-text font-bold hover:bg-medical-surface rounded-2xl transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
